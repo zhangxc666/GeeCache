@@ -1,28 +1,34 @@
 package main
 
 import (
-	"GeeCache/GeeCache"
+	"GeeCache/GeeCache/consistenthash"
 	"fmt"
-	"log"
-	"net/http"
+	"strconv"
 )
 
 func main() {
-	db := map[string]string{
-		"abc": "111",
-		"def": "222",
-		"ghi": "333",
+
+	hash := consistenthash.New(3, func(data []byte) uint32 {
+		i, _ := strconv.Atoi(string(data))
+		return uint32(i)
+	})
+	hash.Add("6", "4", "2")
+	testCases := map[string]string{
+		"2":  "2",
+		"11": "2",
+		"23": "4",
+		"27": "2",
 	}
-	GeeCache.NewGroup("zxc", 2<<10, GeeCache.GetterFunc(
-		func(key string) ([]byte, error) {
-			log.Println("[SlowDB] search key", key)
-			if v, err := db[key]; err {
-				return []byte(v), nil
-			}
-			return nil, fmt.Errorf("%s not exist", key)
-		},
-	))
-	pool := GeeCache.NewHTTPPool("localhost:8080")
-	log.Println("geecache is running at localhost:8080")
-	log.Fatal(http.ListenAndServe("localhost:8080", pool))
+	for k, v := range testCases {
+		if hash.Get(k) != v {
+			fmt.Println(k, v)
+		}
+	}
+	testCases["27"] = "2"
+	for k, v := range testCases {
+		if hash.Get(k) != v {
+			fmt.Println(k, v)
+		}
+	}
+
 }
