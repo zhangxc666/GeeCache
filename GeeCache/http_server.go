@@ -19,7 +19,7 @@ type HTTPServer struct {
 	basePath       string                 // 节点间通讯地址的前缀
 	mu             sync.Mutex             // 锁
 	consistHashMap *consistenthash.Map    //一致性哈希的map，用key选择节点
-	httpClient     map[string]*httpClient // 映射远程节点的url与对应的httpGetter
+	httpClient     map[string]*httpClient // 映射远程节点的url与对应的httpClient
 }
 
 func NewHTTPServer(self string) *HTTPServer {
@@ -52,7 +52,7 @@ func (p *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no such group: "+groupname, http.StatusNotFound)
 		return
 	}
-	view, err := group.Get(key) // 当当前组的key
+	view, err := group.Get(key) // 当前组的key
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -66,7 +66,7 @@ func (p *HTTPServer) Set(clients ...string) {
 	p.consistHashMap = consistenthash.New(defaultReplicas, nil)
 	p.consistHashMap.Add(clients...) // 添加节点
 	p.httpClient = make(map[string]*httpClient, len(clients))
-	for _, name := range clients { // 为传入节点创建了一个httpGetter
+	for _, name := range clients { // 为传入节点创建了一个httpClient
 		p.httpClient[name] = &httpClient{baseURL: name + p.basePath}
 	}
 }

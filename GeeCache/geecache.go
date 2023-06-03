@@ -1,6 +1,7 @@
 package GeeCache
 
 import (
+	"GeeCache/GeeCache/singleflight"
 	"fmt"
 	"log"
 	"sync"
@@ -21,6 +22,7 @@ type Group struct { // 一个缓存命名空间
 	getter     Getter
 	mainCache  cache
 	httpserver PeerPicker
+	loader     *singleflight.Group // 管理短时间内的多次请求
 }
 
 var (
@@ -38,6 +40,7 @@ func NewGroup(name string, cacheBytes int64, getter Getter) *Group { // 创建�
 		name:      name,
 		getter:    getter,
 		mainCache: cache{cacheBytes: cacheBytes},
+		loader:    &singleflight.Group{},
 	}
 	groups[name] = g // 加到组中，用map[group_name]->group找到组
 	return g
@@ -69,15 +72,21 @@ func (g *Group) Get(key string) (ByteView, error) { // 查找缓存值
 }
 
 func (g *Group) load(key string) (value ByteView, err error) {
-	if g.httpserver != nil {
-		if peer, ok := g.httpserver.PickPeer(key); ok { // 从伙伴中获取数据
-			if value, err = g.getFromPeer(peer, key); err == nil {
-				return value, nil
+	view, err := g.loader.Do(key, func() (interface{}, error) {
+		if g.httpserver != nil {
+			if peer, ok := g.httpserver.PickPeer(key); ok { // 从伙伴中获取数据
+				if value, err = g.getFromPeer(peer, key); err == nil {
+					return value, nil
+				}
+				log.Println("[GeeCache] Failed to get from peer", err)
 			}
-			log.Println("[GeeCache] Failed to get from peer", err)
 		}
+		return g.getLocally(key) //添加至自己当前的main缓存中
+	})
+	if err == nil {
+		return view.(ByteView), err
 	}
-	return g.getLocally(key) //添加至自己当前的main缓存中
+	return
 }
 
 func (g *Group) getFromPeer(httpclient PeerGetter, key string) (ByteView, error) { // 从其他节点获取数据
