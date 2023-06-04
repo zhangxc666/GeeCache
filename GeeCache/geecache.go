@@ -1,6 +1,7 @@
 package GeeCache
 
 import (
+	pb "GeeCache/GeeCache/geecachepb"
 	"GeeCache/GeeCache/singleflight"
 	"fmt"
 	"log"
@@ -90,11 +91,16 @@ func (g *Group) load(key string) (value ByteView, err error) {
 }
 
 func (g *Group) getFromPeer(httpclient PeerGetter, key string) (ByteView, error) { // 从其他节点获取数据
-	bytes, err := httpclient.Get(g.name, key)
+	req := &pb.Request{
+		Group: g.name,
+		Key:   key,
+	}
+	res := &pb.Response{}
+	err := httpclient.Get(req, res)
 	if err != nil {
 		return ByteView{}, err
 	}
-	return ByteView{b: bytes}, nil
+	return ByteView{b: res.Value}, nil
 }
 
 func (g *Group) getLocally(key string) (ByteView, error) {

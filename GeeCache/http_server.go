@@ -2,7 +2,9 @@ package GeeCache
 
 import (
 	"GeeCache/GeeCache/consistenthash"
+	pb "GeeCache/GeeCache/geecachepb"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"log"
 	"net/http"
 	"strings"
@@ -53,11 +55,12 @@ func (p *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view, err := group.Get(key) // 当前组的key
+	body, err := proto.Marshal(&pb.Response{Value: view.ByteSlice()})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Write(view.ByteSlice()) //w.Write() 将缓存值作为 httpResponse 的 body
+	w.Write(body) //w.Write() 将缓存值作为 httpResponse 的 body
 }
 
 func (p *HTTPServer) Set(clients ...string) {
